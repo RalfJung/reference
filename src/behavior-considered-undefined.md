@@ -130,7 +130,7 @@ r[undefined.validity.never]
 * A `!` value must never exist.
 
 r[undefined.validity.scalar]
-* An integer (`i*`/`u*`), floating point value (`f*`), or raw pointer must be initialized, i.e., must not be obtained from uninitialized memory.
+* An integer (`i*`/`u*`) or floating point value (`f*`) must be initialized, i.e., must not be obtained from uninitialized memory.
 
 r[undefined.validity.str]
 * A `str` value is treated like `[u8]`, i.e. it must be initialized.
@@ -139,29 +139,28 @@ r[undefined.validity.enum]
 * An `enum` must have a valid discriminant, and all fields of the variant indicated by that discriminant must be valid at their respective type.
 
 r[undefined.validity.struct]
-* A `struct`, tuple, and array requires all fields/elements to be valid at their respective type.
+* A `struct`, tuple, or array requires all fields/elements to be valid at their respective type.
 
 r[undefined.validity.union]
 * For a `union`, the exact validity requirements are not decided yet. Obviously, all values that can be created entirely in safe code are valid. If the union has a [zero-sized] field, then every possible value is valid. Further details are [still being debated](https://github.com/rust-lang/unsafe-code-guidelines/issues/438).
 
-r[undefined.validity.reference-box]
-* A reference or [`Box<T>`] must be aligned and non-null, it cannot be [dangling], and it must point to a valid value (in case of dynamically sized types, using the actual dynamic type of the pointee as determined by the [metadata]). Note that the last point (about pointing to a valid value) remains a subject of some debate.
-
-r[undefined.validity.wide]
-* The [metadata] of a wide reference, [`Box<T>`], or raw pointer must match the type of the [unsized tail]:
-  * `dyn Trait` metadata must be a pointer to a compiler-generated vtable for `Trait`. (For raw pointers, this requirement remains a subject of some debate.)
+r[undefined.validity.raw-ptr]
+* A raw pointer must be initialized, i.e., must not be obtained from uninitialized memory.
+  In addition, if the raw pointer has [metadata], it must match the type of the [unsized tail]:
+  * `dyn Trait` metadata must be a pointer to a compiler-generated vtable for `Trait`.
   * Slice (`[T]`) and `str` metadata must be a valid `usize`.
 
-  In addition, for a wide reference or [`Box<T>`], the metadata is invalid if it makes the total size of the pointed-to value (as determined by `size_of_val`) bigger than `isize::MAX`.
+r[undefined.validity.reference-box]
+* A reference or [`Box<T>`] must satisfy all requirements of a [raw pointer](#r-undefined.validity.raw-ptr) with the same pointee type. Furthermore, it must be aligned and non-null, it cannot be [dangling], and it must point to a valid value (in case of dynamically sized types, using the actual dynamic type of the pointee as determined by the [metadata]). Note that the last point (about pointing to a valid value) remains a subject of some debate.
 
   > [!NOTE]
-  > This bound is on the size of the entire pointed-to value, not just its unsized tail, and it constrains `dyn Trait` metadata just as it does a slice or `str` length. A valid vtable describes an erased type no larger than `isize::MAX`, but a sized prefix can still carry the total past the limit.
+  > The non-[dangling] requirement implies that the total size of the type (the fixed-size part plus the [unsized tail]) must not be bigger than `isize::MAX`.
 
 r[undefined.validity.valid-range]
 * If a type has a custom range of valid values, then a valid value must be in that range. In the standard library, this affects [`NonNull<T>`] and [`NonZero<T>`].
 
   > [!NOTE]
-  > `rustc` achieves this with the unstable `rustc_layout_scalar_valid_range_*` attributes.
+  > `rustc` achieves this with the unstable "pattern types".
 
 r[undefined.validity.const-provenance]
 * **In [const contexts]**: In addition to what is described above, further provenance-related requirements apply during const evaluation. Any value that holds pure integer data (the `i*`/`u*`/`f*` types as well as `bool` and `char`, enum discriminants, and slice [metadata]) must not carry any provenance. Any value that holds pointer data (references, raw pointers, function pointers, and `dyn Trait` metadata) must either carry no provenance, or all bytes must be fragments of the same original pointer value in the correct order.
